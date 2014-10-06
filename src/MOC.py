@@ -53,8 +53,8 @@ class MOC(object):
         default parameters for number of azimuthal angles, track spacing, 
         """
 
-        self.nangle = 4
-        self.delta = 0.2
+        self.nangle = 8
+        self.delta = 0.3
         self.boundary = 'reflective'
         self.geometry = geometry
 
@@ -79,13 +79,13 @@ class MOC(object):
 
         #Determine azimuthal angles
         intv = vectorize(int)
-        p = 2*pi/self.nangle*(0.5+arange(nangle))      # Desired angles
-        t = pi/2.0/self.npolar*(0.5+arange(self.npolar))                # Desired polar angles
-        self.nx = intv(abs(w/self.delta*sin(p)) + 1)   # Num of intersections along x-axis
-        self.ny = intv(abs(h/self.delta*cos(p)) + 1)   # Num of intersections along y-axis
-        self.nz = intv(abs(d/self.delta*sin(t)) + 1)   # Num of intersections along z-axis
-        self.nt = self.nx + self.ny                    # Total num of tracks for each angle
-        self.phi = arctan(h*self.nx/(w*self.ny))       # Actual angle
+        p = 2*pi/self.nangle*(0.5+arange(nangle))         # Desired angles
+        t = pi/2.0/self.npolar*(0.5+arange(self.npolar))  # Desired polar angles
+        self.nx = intv(abs(w/self.delta*sin(p)) + 1)      # Num of intersections along x-axis
+        self.ny = intv(abs(h/self.delta*cos(p)) + 1)      # Num of intersections along y-axis
+        self.nz = intv(abs(d/self.delta*sin(t)) + 1)      # Num of intersections along z-axis
+        self.nt = self.nx + self.ny                       # Total num of tracks for each angle
+        self.phi = arctan(h*self.nx/(w*self.ny))          # Actual angle
 
         # create polar angle spacing and correct angles for each azi angle
         self.theta = zeros((len(self.nx), len(self.nz)))
@@ -115,49 +115,46 @@ class MOC(object):
 
         print('phi: {0}'.format(self.phi))
 
-        # allocate track lists
-        self.tracks = []
-        for p in range(2*self.npolar):
-            self.tracks.append([])
-            for i in range(nangle):
-                self.tracks[p].append([])
-
-        # Make tracks on (0,y,z), (x,0,z), and (w,y,z) planes
+        # Determine coordinates
+        self.tracks2D = []
         for i in range(nangle):
             xin = zeros(self.nt[i])
             yin = zeros(self.nt[i])
             
             phi = self.phi[i]
-            xin[:self.nx[i]] = xprime[i]*(0.5 + arange(self.nx[i]))
             yin[:self.nx[i]] = 0
             yin[self.nx[i]:] = yprime[i]*(0.5 + arange(self.ny[i]))
-            if sin(phi) > 0 and cos(phi) > 0:
+
+            if phi < pi/2:
+                xin[:self.nx[i]] = xprime[i]*(0.5 + arange(self.nx[i]))
                 xin[self.nx[i]:] = 0
-            elif sin(phi) > 0 and cos(phi) < 0:
+            else:
+                xin[:self.nx[i]] = xprime[i]*(0.5 + arange(self.nx[i]))
                 xin[self.nx[i]:] = w
+
             phi = self.phi[i]
-
+            self.tracks2D.append([])
             for x,y in zip(xin,yin):
-                for p in range(len(self.nz)):
-                    zin = zprime[p]*(0.5 + arange(self.nz[p]))
-                    print('zin: {0}'.format(zin))
-                    for z in zin:
-                        # track for theta > pi / 2
-                        r_in = geom.Vector3D(x,y,z)
-                        r_out = self.geometry.endpoint3d(r_in,phi,self.theta[i][p])
-                        newTrack = Track3D(r_in, r_out, phi, self.theta[i][p])
-                        newTrack.weight = self.wgta[i]          # Could make index on track to get rid of this
-                        self.tracks[p][i].append(newTrack)
+                r_in = geom.Vector2D(x,y)
+                r_out = self.geometry.endpoint(r_in,phi)
+                newTrack = Track2D(r_in, r_out, phi)
+                newTrack.weight = self.wgta[i]          # Could make index on track to get rid of this
+                self.tracks2D[i].append(newTrack)
 
-                        # track for reflecting theta
-                        r_in = geom.Vector3D(x,y,z)
-                        r_out = self.geometry.endpoint3d(r_in,phi,pi - self.theta[i][p])
-                        newTrack = Track3D(r_in, r_out, phi, pi - self.theta[i][p])
-                        newTrack.weight = self.wgta[i]          # Could make index on track to get rid of this
-                        self.tracks[p][i].append(newTrack)
 
-        # make tracks on (x, y, 0) plane
-        for p in range(len(self.nz)):
+        # 3D TRACKS
+
+        # allocate track lists
+        self.tracks3D = []       # 3D tracks by polar, azi, track index
+        for p in range(2*self.npolar):
+            self.tracks3D.append([])
+            for i in range(nangle):
+                self.tracks3D[p].append([])
+                for t in range(self.nt[i]):
+                    self.tracks3D[p][i].append([])
+
+        # Make tracks for theta < pi/2 on the bottom surface
+        for p in range(self.npolar):
             for i in range(nangle):
                 dx = xprime[i]
                 dy = yprime[i]
@@ -166,44 +163,147 @@ class MOC(object):
                 yin = zeros(self.nt[i])
             
                 phi = self.phi[i]
-                xin[:self.nx[i]] = xprime[i]*(0.5 + arange(self.nx[i]))
                 yin[:self.nx[i]] = 0
                 yin[self.nx[i]:] = yprime[i]*(0.5 + arange(self.ny[i]))
-                if sin(phi) > 0 and cos(phi) > 0:
+
+                if phi < pi/2:
+                    xin[:self.nx[i]] = xprime[i]*(0.5 + arange(self.nx[i]))
                     xin[self.nx[i]:] = 0
-                elif sin(phi) > 0 and cos(phi) < 0:
+                else:
+                    xin[:self.nx[i]] = xprime[i]*(0.5 + arange(self.nx[i]))
                     xin[self.nx[i]:] = w
-                phi = self.phi[i]
-                
-                # tracks for theta < pi / 2
+
+                track = 0
+
+                # loop over 2d tracks
                 for x,y in zip(xin,yin):
+
+                    # get starting point at end of track
                     x += cos(phi) * dl / 2.0 
                     y += sin(phi) * dl / 2.0 
+                    while x < w and y < h and x > 0 and y > 0:
+                        x += cos(phi) * dl
+                        y += sin(phi) * dl
+                    x -= cos(phi) * dl
+                    y -= sin(phi) * dl
 
                     while x < w and y < h and x > 0 and y > 0:
                         r_in = geom.Vector3D(x,y,0)
                         r_out = self.geometry.endpoint3d(r_in,phi,self.theta[i][p])
                         newTrack = Track3D(r_in, r_out, phi, self.theta[i][p])
                         newTrack.weight = self.wgta[i]          # Could make index on track to get rid of this
-                        self.tracks[p][i].append(newTrack)
-                        x += cos(phi) * dl
-                        y += sin(phi) * dl
+                        self.tracks3D[p][i][track].append(newTrack)
+                        x -= cos(phi) * dl
+                        y -= sin(phi) * dl
 
-                # tracks for reflecting theta
+                    track += 1
+
+        # Make tracks for theta < pi/2 on the side surfaces
+        for p in range(self.npolar):
+            for i in range(nangle):
+                xin = zeros(self.nt[i])
+                yin = zeros(self.nt[i])
+                zin = zprime[p]*(0.5 + arange(self.nz[p]))
+                
+                phi = self.phi[i]
+                yin[:self.nx[i]] = 0
+                yin[self.nx[i]:] = yprime[i]*(0.5 + arange(self.ny[i]))
+
+                if phi < pi/2:
+                    xin[:self.nx[i]] = xprime[i]*(0.5 + arange(self.nx[i]))
+                    xin[self.nx[i]:] = 0
+                else:
+                    xin[:self.nx[i]] = xprime[i]*(0.5 + arange(self.nx[i]))
+                    xin[self.nx[i]:] = w
+
+                track = 0
+
                 for x,y in zip(xin,yin):
+                    for z in zin:
+                        r_in = geom.Vector3D(x,y,z)
+                        r_out = self.geometry.endpoint3d(r_in,phi,self.theta[i][p])
+                        newTrack = Track3D(r_in, r_out, phi, self.theta[i][p])
+                        newTrack.weight = self.wgta[i]          # Could make index on track to get rid of this
+                        self.tracks3D[p][i][track].append(newTrack)
+
+                    track += 1
+
+        # Make tracks for phi > pi/2 on the top surface
+        for p in range(self.npolar):
+            for i in range(nangle):
+                dx = xprime[i]
+                dy = yprime[i]
+                dl = zprime[p]*tan(self.theta[i][p])
+                xin = zeros(self.nt[i])
+                yin = zeros(self.nt[i])
+            
+                phi = self.phi[i]
+                yin[:self.nx[i]] = 0
+                yin[self.nx[i]:] = yprime[i]*(0.5 + arange(self.ny[i]))
+
+                if phi < pi/2:
+                    xin[:self.nx[i]] = xprime[i]*(0.5 + arange(self.nx[i]))
+                    xin[self.nx[i]:] = 0
+                else:
+                    xin[:self.nx[i]] = xprime[i]*(0.5 + arange(self.nx[i]))
+                    xin[self.nx[i]:] = w
+
+                track = 0
+
+                # loop over 2d tracks
+                for x,y in zip(xin,yin):
+
+                    # get starting point at end of track
                     x += cos(phi) * dl / 2.0 
                     y += sin(phi) * dl / 2.0 
+                    while x < w and y < h and x > 0 and y > 0:
+                        x += cos(phi) * dl
+                        y += sin(phi) * dl
+                    x -= cos(phi) * dl
+                    y -= sin(phi) * dl
 
                     while x < w and y < h and x > 0 and y > 0:
                         r_in = geom.Vector3D(x,y,d)
                         r_out = self.geometry.endpoint3d(r_in,phi,pi - self.theta[i][p])
                         newTrack = Track3D(r_in, r_out, phi, pi - self.theta[i][p])
                         newTrack.weight = self.wgta[i]          # Could make index on track to get rid of this
-                        self.tracks[p][i].append(newTrack)
-                        x += cos(phi) * dl
-                        y += sin(phi) * dl
+                        self.tracks3D[-(p+1)][i][track].append(newTrack)
+                        x -= cos(phi) * dl
+                        y -= sin(phi) * dl
+
+                    track += 1
 
 
+        # Make tracks for phi > pi/2 on the side surfaces
+        for p in range(self.npolar):
+            for i in range(nangle):
+                xin = zeros(self.nt[i])
+                yin = zeros(self.nt[i])
+                zin = zprime[p]*(0.5 + arange(self.nz[p]))
+                zin = zin[::-1]
+
+                phi = self.phi[i]
+                yin[:self.nx[i]] = 0
+                yin[self.nx[i]:] = yprime[i]*(0.5 + arange(self.ny[i]))
+
+                if phi < pi/2:
+                    xin[:self.nx[i]] = xprime[i]*(0.5 + arange(self.nx[i]))
+                    xin[self.nx[i]:] = 0
+                else:
+                    xin[:self.nx[i]] = xprime[i]*(0.5 + arange(self.nx[i]))
+                    xin[self.nx[i]:] = w
+
+                track = 0
+
+                for x,y in zip(xin,yin):
+                    for z in zin:
+                        r_in = geom.Vector3D(x,y,z)
+                        r_out = self.geometry.endpoint3d(r_in,phi,pi - self.theta[i][p])
+                        newTrack = Track3D(r_in, r_out, phi, pi - self.theta[i][p])
+                        newTrack.weight = self.wgta[i]          # Could make index on track to get rid of this
+                        self.tracks3D[-(p+1)][i][track].append(newTrack)
+
+                    track += 1
 
 
     def makeReflective(self):
@@ -230,80 +330,574 @@ class MOC(object):
             nx = self.nx[i]
             ny = self.ny[i]
             nt = self.nt[i]
-            tracks_refl = self.tracks[0][-(i+1)]
-
-            for j,track in enumerate(self.tracks[0][i]):
+            tracks_refl = self.tracks2D[-(i+1)]
+ 
+            for j,track in enumerate(self.tracks2D[i]):
                 # More points along y-axis
                 if nx <= ny:
                     if j < nx:
                         # Bottom to right side
-                        track.track_in          = tracks_refl[j]
-                        track.track_in.track_in = track
-                        track.refl_in           = 0
-                        track.track_in.refl_in  = 0
+                        track.track_in                        = j
+                        tracks_refl[j].track_in               = j
+                        track.refl_in                         = 0
+                        tracks_refl[j].refl_in                = 0
 
-                        track.track_out          = tracks_refl[2*nx-1-j]
-                        track.track_out.track_in = track
-                        track.refl_out           = 0
-                        track.track_out.refl_in  = 1
+                        track.track_out                       = 2*nx-1-j
+                        tracks_refl[2*nx-1-j].track_in        = j
+                        track.refl_out                        = 0
+                        tracks_refl[2*nx-1-j].refl_in         = 1
                     elif j < ny:
                         # Left side to right side
-                        track.track_in           = tracks_refl[j-nx]
-                        track.track_in.track_out = track
-                        track.refl_in            = 1
-                        track.track_in.refl_out  = 0
+                        track.track_in                        = j-nx
+                        tracks_refl[j-nx].track_out           = j
+                        track.refl_in                         = 1
+                        tracks_refl[j-nx].refl_out            = 0
 
-                        track.track_out          = tracks_refl[j+nx]
-                        track.track_out.track_in = track
-                        track.refl_out           = 0
-                        track.track_out.refl_in  = 1
+                        track.track_out                       = j+nx
+                        tracks_refl[j+nx].track_in            = j
+                        track.refl_out                        = 0
+                        tracks_refl[j+nx].refl_in             = 1
                     else:
                         # Left side to top side
-                        track.track_in           = tracks_refl[j-nx]
-                        track.track_in.track_out = track
-                        track.refl_in            = 1
-                        track.track_in.refl_out  = 0
+                        track.track_in                        = j-nx
+                        tracks_refl[j-nx].track_out           = j
+                        track.refl_in                         = 1
+                        tracks_refl[j-nx].refl_out               = 0
 
-                        track.track_out           = tracks_refl[-(nx-(nt-j)+1)]
-                        track.track_out.track_out = track
-                        track.refl_out            = 1
-                        track.track_out.refl_out  = 1
+                        track.track_out                       = -(nx-(nt-j)+1)
+                        tracks_refl[-(nx-(nt-j)+1)].track_out = j
+                        track.refl_out                        = 1
+                        tracks_refl[-(nx-(nt-j)+1)].refl_out  = 1
 
                 # More points along x-axis
                 else:
                     if j < nx - ny:
                         # Bottom to top
-                        track.track_in          = tracks_refl[j]
-                        track.track_in.track_in = track
-                        track.refl_in           = 0
-                        track.track_in.refl_in  = 0
+                        track.track_in                        = j
+                        tracks_refl[j].track_in               = j
+                        track.refl_in                         = 0
+                        tracks_refl[j].refl_in                = 0
 
-                        track.track_out           = tracks_refl[nt-(nx-ny)+j]
-                        track.track_out.track_out = track
-                        track.refl_out            = 1
-                        track.track_out.refl_out  = 1
+                        track.track_out                       = nt-(nx-ny)+j
+                        tracks_refl[nt-(nx-ny)+j].track_out   = j
+                        track.refl_out                        = 1
+                        tracks_refl[nt-(nx-ny)+j].refl_out    = 1
                     elif j < nx:
                         # Bottom to right side
-                        track.track_in          = tracks_refl[j]
-                        track.track_in.track_in = track
-                        track.refl_in           = 0
-                        track.track_in.refl_in  = 0
+                        track.track_in                        = j
+                        tracks_refl[j].track_in               = j
+                        track.refl_in                         = 0
+                        tracks_refl[j].refl_in                = 0
 
-                        track.track_out          = tracks_refl[nx+(nx-j)-1]
-                        track.track_out.track_in = track
-                        track.refl_out           = 0
-                        track.track_out.refl_in  = 1
+                        track.track_out                       = nx+(nx-j)-1
+                        tracks_refl[nx+(nx-j)-1].track_in     = j
+                        track.refl_out                        = 0
+                        tracks_refl[nx+(nx-j)-1].refl_in      = 1
                     else:
                         # Left side to top
-                        track.track_in           = tracks_refl[j-nx]
-                        track.track_in.track_out = track
-                        track.refl_in            = 1
-                        track.track_in.refl_out  = 0
+                        track.track_in                        = j-nx
+                        tracks_refl[j-nx].track_out           = j
+                        track.refl_in                         = 1
+                        tracks_refl[j-nx].refl_out            = 0
 
-                        track.track_out           = tracks_refl[ny+(nt-j)-1]
-                        track.track_out.track_out = track
-                        track.refl_out            = 1
-                        track.track_out.refl_out  = 1
+                        track.track_out                       = ny+(nt-j)-1
+                        tracks_refl[ny+(nt-j)-1].track_out    = j
+                        track.refl_out                        = 1
+                        tracks_refl[ny+(nt-j)-1].refl_out     = 1
+
+
+        # set reflections for theta < pi / 2
+
+        # loop over polar angles
+        for p in range(self.npolar):
+            # loop over azimuthal angles 
+            for i in range(nangle):
+                # loop over 2D tracks
+                for xy,track_stack in enumerate(self.tracks3D[p][i]):
+
+                    refl_z      = self.tracks3D[-(p+1)][i][xy]
+                    refl_xy_in  = self.tracks3D[p][-(i+1)][self.tracks2D[i][xy].track_in]
+                    refl_xy_out = self.tracks3D[p][-(i+1)][self.tracks2D[i][xy].track_out]
+                    nx = self.nx[i]
+                    ny = self.ny[i]
+                    nt = self.nt[i]
+                    nz = self.nz[p]
+                    phi = self.phi[i]
+                    nxyz = len(track_stack)
+
+                    # loop over 3D tracks
+                    for t,track in enumerate(track_stack):
+
+                        # BOTTOM to RIGHT for xy tracks on FRONT
+                        if xy < nx and t < nz and phi < pi/2 and t < nxyz - nz and nx - xy - 1 < ny:
+
+                            nxyz_out = len(refl_xy_out)
+                            track.track_out          = refl_xy_out[nxyz_out - nz + t]
+                            track.track_out.track_in = track
+                            track.refl_out           = 0
+                            track.track_out.refl_in  = 1
+
+                            nxyz_in = len(refl_z)
+                            track.track_in           = refl_z[nz + t]
+                            track.track_in.track_out = track
+                            track.refl_in            = 1
+                            track.track_in.refl_out  = 0
+
+                        # BOTTOM to RIGHT for xy tracks on LEFT
+                        elif xy >= nx and t < nz and phi < pi/2 and t < nxyz - nz and xy < ny:
+
+                            nxyz_out = len(refl_xy_out)
+                            track.track_out          = refl_xy_out[nxyz_out - self.nz[p] + t]
+                            track.track_out.track_in = track
+                            track.refl_out           = 0
+                            track.track_out.refl_in  = 1
+
+                            nxyz_in = len(refl_z)
+                            track.track_in           = refl_z[nz + t]
+                            track.track_in.track_out = track
+                            track.refl_in            = 1
+                            track.track_in.refl_out  = 0
+
+                        # BOTTOM to BACK for xy tracks on FRONT
+                        elif xy < nx and t < nz and phi < pi/2 and t < nxyz - nz and nx - xy - 1 >= ny:
+
+                            refl_xy_out = self.tracks3D[-(p+1)][-(i+1)][self.tracks2D[i][xy].track_out]
+
+                            nxyz_out = len(refl_xy_out)
+                            track.track_out           = refl_xy_out[nz - t - 1]
+                            track.track_out.track_out = track
+                            track.refl_out            = 1
+                            track.track_out.refl_out  = 1
+
+                            nxyz_in = len(refl_z)
+                            track.track_in           = refl_z[nz + t]
+                            track.track_in.track_out = track
+                            track.refl_in            = 1
+                            track.track_in.refl_out  = 0
+
+                        # BOTTOM to BACK for xy tracks on LEFT
+                        elif xy >= nx and t < nz and phi < pi/2 and t < nxyz - nz and xy >= ny:
+
+                            refl_xy_out = self.tracks3D[-(p+1)][-(i+1)][self.tracks2D[i][xy].track_out]
+
+                            nxyz_out = len(refl_xy_out)
+                            track.track_out           = refl_xy_out[nz - t - 1]
+                            track.track_out.track_out = track
+                            track.refl_out            = 1
+                            track.track_out.refl_out  = 1
+
+                            nxyz_in = len(refl_z)
+                            track.track_in           = refl_z[self.nz[p] + t]
+                            track.track_in.track_out = track
+                            track.refl_in            = 1
+                            track.track_in.refl_out  = 0
+                            
+                        # BOTTOM to TOP
+                        elif t >= nz and phi < pi/2 and t < nxyz - nz:
+
+                            nxyz_out = len(refl_z)
+                            track.track_out          = refl_z[t - nz]
+                            track.track_out.track_in = track
+                            track.refl_out           = 0
+                            track.track_out.refl_in  = 1
+
+                            nxyz_in = len(refl_z)
+                            track.track_in           = refl_z[nz + t]
+                            track.track_in.track_out = track
+                            track.refl_in            = 1
+                            track.track_in.refl_out  = 0
+
+                        # FRONT to RIGHT
+                        elif xy < nx and t >= nxyz - nz and phi < pi/2 and t < nz and nx - xy - 1 < ny:
+
+                            nxyz_out = len(refl_xy_out)
+                            track.track_out          = refl_xy_out[nxyz_out - nz + t]
+                            track.track_out.track_in = track
+                            track.refl_out           = 0
+                            track.track_out.refl_in  = 1
+
+                            refl_xy_in  = self.tracks3D[-(p+1)][-(i+1)][self.tracks2D[i][xy].track_in]
+
+                            nxyz_in = len(refl_xy_in)
+                            track.track_in           = refl_xy_in[nxyz_in - t + nxyz - nz - 1]
+                            track.track_in.track_in  = track
+                            track.refl_in            = 0
+                            track.track_in.refl_in   = 0
+
+                        # FRONT to BACK
+                        elif xy < nx and t >= nxyz - nz and phi < pi/2 and t < nz and nx - xy - 1 >= ny:
+
+                            refl_xy_out = self.tracks3D[-(p+1)][-(i+1)][self.tracks2D[i][xy].track_out]
+
+                            nxyz_out = len(refl_xy_out)
+                            track.track_out           = refl_xy_out[nz - t - 1]
+                            track.track_out.track_out = track
+                            track.refl_out            = 1
+                            track.track_out.refl_out  = 1
+
+                            refl_xy_in  = self.tracks3D[-(p+1)][-(i+1)][self.tracks2D[i][xy].track_in]
+
+                            nxyz_in = len(refl_xy_in)
+                            track.track_in           = refl_xy_in[(nxyz - t - 1) + (nxyz_in - nz)]
+                            track.track_in.track_in  = track
+                            track.refl_in            = 0
+                            track.track_in.refl_in   = 0
+
+                        # FRONT to TOP
+                        elif xy < nx and t >= nxyz - nz and phi < pi/2 and t >= nz:
+
+                            nxyz_out = len(refl_z)
+                            track.track_out          = refl_z[t - nz]
+                            track.track_out.track_in = track
+                            track.refl_out           = 0
+                            track.track_out.refl_in  = 1
+
+                            refl_xy_in  = self.tracks3D[-(p+1)][-(i+1)][self.tracks2D[i][xy].track_in]
+
+                            nxyz_in = len(refl_xy_in)
+                            track.track_in           = refl_xy_in[(nxyz - t - 1) + (nxyz_in - nz)]
+                            track.track_in.track_in  = track
+                            track.refl_in            = 0
+                            track.track_in.refl_in   = 0
+
+                        # LEFT to RIGHT
+                        elif xy >= nx and t >= nxyz - nz and phi < pi/2 and t < nz and xy < ny:
+
+                            nxyz_out = len(refl_xy_out)
+                            track.track_out          = refl_xy_out[nxyz_out - nz + t]
+                            track.track_out.track_in = track
+                            track.refl_out           = 0
+                            track.track_out.refl_in  = 1
+
+                            nxyz_in = len(refl_xy_in)
+                            track.track_in           = refl_xy_in[t - (nxyz - nz)]
+                            track.track_in.track_out = track
+                            track.refl_in            = 1
+                            track.track_in.refl_out  = 0
+
+                        # LEFT to BACK
+                        elif xy >= nx and t >= nxyz - nz and phi < pi/2 and t < nz and xy >= ny:
+
+                            refl_xy_out = self.tracks3D[-(p+1)][-(i+1)][self.tracks2D[i][xy].track_out]
+
+                            nxyz_out = len(refl_xy_out)
+                            track.track_out           = refl_xy_out[nz - t - 1]
+                            track.track_out.track_out = track
+                            track.refl_out            = 1
+                            track.track_out.refl_out  = 1
+
+                            nxyz_in = len(refl_xy_in)
+                            track.track_in           = refl_xy_in[t - (nxyz - nz)]
+                            track.track_in.track_out = track
+                            track.refl_in            = 1
+                            track.track_in.refl_out  = 0
+
+                        # LEFT to TOP
+                        elif xy >= nx and t >= nxyz - nz and phi < pi/2 and t >= nz:
+
+                            nxyz_out = len(refl_z)
+                            track.track_out          = refl_z[t - nz]
+                            track.track_out.track_in = track
+                            track.refl_out           = 0
+                            track.track_out.refl_in  = 1
+
+                            nxyz_in = len(refl_xy_in)
+                            track.track_in           = refl_xy_in[t - (nxyz - nz)]
+                            track.track_in.track_out = track
+                            track.refl_in            = 1
+                            track.track_in.refl_out  = 0
+
+                        # PHI > PI / 2
+
+                        # BOTTOM to LEFT
+                        elif t < nz and phi > pi/2 and t < nxyz - nz and xy < ny:
+
+                            nxyz_out = len(refl_xy_out)
+                            track.track_out          = refl_xy_out[nxyz_out - nz + t]
+                            track.track_out.track_in = track
+                            track.refl_out           = 0
+                            track.track_out.refl_in  = 1
+
+                            nxyz_in = len(refl_z)
+                            track.track_in           = refl_z[nz + t]
+                            track.track_in.track_out = track
+                            track.refl_in            = 1
+                            track.track_in.refl_out  = 0
+
+                        # BOTTOM to BACK
+                        elif t < nz and phi > pi/2 and t < nxyz - nz and xy >= ny:
+
+                            refl_xy_out = self.tracks3D[-(p+1)][-(i+1)][self.tracks2D[i][xy].track_out]
+
+                            nxyz_out = len(refl_xy_out)
+                            track.track_out           = refl_xy_out[nz - t - 1]
+                            track.track_out.track_out = track
+                            track.refl_out            = 1
+                            track.track_out.refl_out  = 1
+
+                            nxyz_in = len(refl_z)
+                            track.track_in           = refl_z[nz + t]
+                            track.track_in.track_out = track
+                            track.refl_in            = 1
+                            track.track_in.refl_out  = 0
+
+                        # BOTTOM to TOP
+                        elif t >= nz and phi > pi/2 and t < nxyz - nz:
+
+                            nxyz_out = len(refl_z)
+                            track.track_out          = refl_z[t - nz]
+                            track.track_out.track_in = track
+                            track.refl_out           = 0
+                            track.track_out.refl_in  = 1
+
+                            nxyz_in = len(refl_z)
+                            track.track_in           = refl_z[nz + t]
+                            track.track_in.track_out = track
+                            track.refl_in            = 1
+                            track.track_in.refl_out  = 0
+
+                        # FRONT to LEFT
+                        elif xy < nx and t >= nxyz - nz and phi > pi/2 and t < nz and xy < ny:
+
+                            nxyz_out = len(refl_xy_out)
+                            track.track_out          = refl_xy_out[nxyz_out - nz + t]
+                            track.track_out.track_in = track
+                            track.refl_out           = 0
+                            track.track_out.refl_in  = 1
+
+                            refl_xy_in  = self.tracks3D[-(p+1)][-(i+1)][self.tracks2D[i][xy].track_in]
+
+                            nxyz_in = len(refl_xy_in)
+                            track.track_in           = refl_xy_in[nxyz_in - t + nxyz - nz - 1]
+                            track.track_in.track_in  = track
+                            track.refl_in            = 0
+                            track.track_in.refl_in   = 0
+
+                        # FRONT to BACK
+                        elif xy < nx and t >= nxyz - nz and phi > pi/2 and t < nz and xy >= ny:
+
+                            refl_xy_out = self.tracks3D[-(p+1)][-(i+1)][self.tracks2D[i][xy].track_out]
+
+                            nxyz_out = len(refl_xy_out)
+                            track.track_out           = refl_xy_out[nz - t - 1]
+                            track.track_out.track_out = track
+                            track.refl_out            = 1
+                            track.track_out.refl_out  = 1
+
+                            refl_xy_in  = self.tracks3D[-(p+1)][-(i+1)][self.tracks2D[i][xy].track_in]
+
+                            nxyz_in = len(refl_xy_in)
+                            track.track_in           = refl_xy_in[(nxyz - t - 1) + (nxyz_in - nz)]
+                            track.track_in.track_in  = track
+                            track.refl_in            = 0
+                            track.track_in.refl_in   = 0
+
+                        # FRONT to TOP
+                        elif xy < nx and t >= nxyz - nz and phi > pi/2 and t >= nz:
+
+                            nxyz_out = len(refl_z)
+                            track.track_out          = refl_z[t - nz]
+                            track.track_out.track_in = track
+                            track.refl_out           = 0
+                            track.track_out.refl_in  = 1
+
+                            refl_xy_in  = self.tracks3D[-(p+1)][-(i+1)][self.tracks2D[i][xy].track_in]
+
+                            nxyz_in = len(refl_xy_in)
+                            track.track_in           = refl_xy_in[(nxyz - t - 1) + (nxyz_in - nz)]
+                            track.track_in.track_in  = track
+                            track.refl_in            = 0
+                            track.track_in.refl_in   = 0
+
+                        # RIGHT to LEFT
+                        elif xy >= nx and t >= nxyz - nz and phi > pi/2 and t < nz and xy < ny:
+
+                            nxyz_out = len(refl_xy_out)
+                            track.track_out          = refl_xy_out[nxyz_out - nz + t]
+                            track.track_out.track_in = track
+                            track.refl_out           = 0
+                            track.track_out.refl_in  = 1
+
+                            nxyz_in = len(refl_xy_in)
+                            track.track_in           = refl_xy_in[t - (nxyz - nz)]
+                            track.track_in.track_out = track
+                            track.refl_in            = 1
+                            track.track_in.refl_out  = 0
+
+                        # RIGHT to BACK
+                        elif xy >= nx and t >= nxyz - nz and phi > pi/2 and t < nz and xy >= ny:
+
+                            refl_xy_out = self.tracks3D[-(p+1)][-(i+1)][self.tracks2D[i][xy].track_out]
+
+                            nxyz_out = len(refl_xy_out)
+                            track.track_out           = refl_xy_out[nz - t - 1]
+                            track.track_out.track_out = track
+                            track.refl_out            = 1
+                            track.track_out.refl_out  = 1
+
+                            nxyz_in = len(refl_xy_in)
+                            track.track_in           = refl_xy_in[t - (nxyz - nz)]
+                            track.track_in.track_out = track
+                            track.refl_in            = 1
+                            track.track_in.refl_out  = 0
+
+                        # RIGHT to TOP
+                        elif xy >= nx and t >= nxyz - nz and phi > pi/2 and t >= nz:
+
+                            nxyz_out = len(refl_z)
+                            track.track_out          = refl_z[t - nz]
+                            track.track_out.track_in = track
+                            track.refl_out           = 0
+                            track.track_out.refl_in  = 1
+
+                            nxyz_in = len(refl_xy_in)
+                            track.track_in           = refl_xy_in[t - (nxyz - nz)]
+                            track.track_in.track_out = track
+                            track.refl_in            = 1
+                            track.track_in.refl_out  = 0
+
+                        else:
+                            print('Could not find reflective track: {0}'.format(track))
+                            
+
+        # set reflections for theta > pi / 2
+
+        # loop over polar angles
+        for p in range(self.npolar):
+            # loop over azimuthal angles 
+            for i in range(nangle):
+                # loop over 2D tracks
+                for xy,track_stack in enumerate(self.tracks3D[-(p+1)][i]):
+
+                    refl_z      = self.tracks3D[p][i][xy]
+                    refl_xy_in  = self.tracks3D[-(p+1)][-(i+1)][self.tracks2D[i][xy].track_in]
+                    refl_xy_out = self.tracks3D[-(p+1)][-(i+1)][self.tracks2D[i][xy].track_out]
+                    nx = self.nx[i]
+                    ny = self.ny[i]
+                    nt = self.nt[i]
+                    nz = self.nz[p]
+                    phi = self.phi[i]
+                    nxyz = len(track_stack)
+
+                    # loop over 3D tracks
+                    for t,track in enumerate(track_stack):
+
+                        # TOP to RIGHT for xy tracks on FRONT
+                        if xy < nx and t < nz and phi < pi/2 and t < nxyz - nz and nx - xy - 1 < ny:
+
+                            nxyz_out = len(refl_xy_out)
+                            track.track_out          = refl_xy_out[nxyz_out - nz + t]
+                            track.track_out.track_in = track
+                            track.refl_out           = 0
+                            track.track_out.refl_in  = 1
+
+                        # TOP to RIGHT for xy tracks on LEFT
+                        elif xy >= nx and t < nz and phi < pi/2 and t < nxyz - nz and xy < ny:
+
+                            nxyz_out = len(refl_xy_out)
+                            track.track_out          = refl_xy_out[nxyz_out - nz + t]
+                            track.track_out.track_in = track
+                            track.refl_out           = 0
+                            track.track_out.refl_in  = 1
+
+                        # FRONT to RIGHT
+                        elif xy < nx and t >= nxyz - nz and phi < pi/2 and t < nz and nx - xy - 1 < ny:
+
+                            nxyz_out = len(refl_xy_out)
+                            track.track_out          = refl_xy_out[nxyz_out - nz + t]
+                            track.track_out.track_in = track
+                            track.refl_out           = 0
+                            track.track_out.refl_in  = 1
+
+                        # LEFT to BACK
+                        elif xy >= nx and t >= nxyz - nz and phi < pi/2 and t < nz and xy >= ny:
+
+                            nxyz_in = len(refl_xy_in)
+                            track.track_in           = refl_xy_in[t - (nxyz - nz)]
+                            track.track_in.track_out = track
+                            track.refl_in            = 1
+                            track.track_in.refl_out  = 0
+
+                        # LEFT to BOTTOM
+                        elif xy >= nx and t >= nxyz - nz and phi < pi/2 and t >= nz:
+
+                            nxyz_in = len(refl_xy_in)
+                            track.track_in           = refl_xy_in[t - (nxyz - nz)]
+                            track.track_in.track_out = track
+                            track.refl_in            = 1
+                            track.track_in.refl_out  = 0
+
+                            #import matplotlib as mpl
+                            #from mpl_toolkits.mplot3d import Axes3D
+                            #import numpy as np
+                            #import matplotlib.pyplot as plt
+                            #mpl.rcParams['legend.fontsize'] = 10
+                            #fig = plt.figure()
+                            #ax = fig.gca(projection='3d')
+
+                            #ax.plot([track.r_in.x, track.r_out.x], [track.r_in.y, track.r_out.y], [track.r_in.z, track.r_out.z], 'k')
+                            #ax.plot([track.track_out.r_in.x, track.track_out.r_out.x], [track.track_out.r_in.y, track.track_out.r_out.y], [track.track_out.r_in.z, track.track_out.r_out.z], 'k')
+                            #ax.plot([track.track_in.r_in.x, track.track_in.r_out.x], [track.track_in.r_in.y, track.track_in.r_out.y], [track.track_in.r_in.z, track.track_in.r_out.z], 'k')
+
+                            #ax.plot([self.tracks2D[i][xy].r_in.x, self.tracks2D[i][xy].r_out.x], [self.tracks2D[i][xy].r_in.y, self.tracks2D[i][xy].r_out.y], [0,0], 'k')
+                            #ax.plot([self.tracks2D[nangle-i-1][self.tracks2D[i][xy].track_out].r_in.x, self.tracks2D[nangle-i-1][self.tracks2D[i][xy].track_out].r_out.x], [self.tracks2D[nangle-i-1][self.tracks2D[i][xy].track_out].r_in.y, self.tracks2D[nangle-i-1][self.tracks2D[i][xy].track_out].r_out.y], [0,0], 'k')
+                            #ax.plot([self.tracks2D[nangle-i-1][self.tracks2D[i][xy].track_in].r_in.x, self.tracks2D[nangle-i-1][self.tracks2D[i][xy].track_in].r_out.x], [self.tracks2D[nangle-i-1][self.tracks2D[i][xy].track_in].r_in.y, self.tracks2D[nangle-i-1][self.tracks2D[i][xy].track_in].r_out.y], [0,0], 'k')
+
+                            #plt.show()
+
+                        # PHI > PI / 2
+
+                        # TOP to LEFT
+                        elif t < nz and phi > pi/2 and t < nxyz - nz and xy < ny:
+
+                            nxyz_out = len(refl_xy_out)
+                            track.track_out          = refl_xy_out[nxyz_out - nz + t]
+                            track.track_out.track_in = track
+                            track.refl_out           = 0
+                            track.track_out.refl_in  = 1
+
+                        # FRONT to LEFT
+                        elif xy < nx and t >= nxyz - nz and phi > pi/2 and t < nz and xy < ny:
+
+                            nxyz_out = len(refl_xy_out)
+                            track.track_out          = refl_xy_out[nxyz_out - nz + t]
+                            track.track_out.track_in = track
+                            track.refl_out           = 0
+                            track.track_out.refl_in  = 1
+
+                        # RIGHT to LEFT
+                        elif xy >= nx and t >= nxyz - nz and phi > pi/2 and t < nz and xy < ny:
+
+                            nxyz_out = len(refl_xy_out)
+                            track.track_out          = refl_xy_out[nxyz_out - nz + t]
+                            track.track_out.track_in = track
+                            track.refl_out           = 0
+                            track.track_out.refl_in  = 1
+
+                            nxyz_in = len(refl_xy_in)
+                            track.track_in           = refl_xy_in[t - (nxyz - nz)]
+                            track.track_in.track_out = track
+                            track.refl_in            = 1
+                            track.track_in.refl_out  = 0
+
+                        # RIGHT to BACK
+                        elif xy >= nx and t >= nxyz - nz and phi > pi/2 and t < nz and xy >= ny:
+
+                            nxyz_in = len(refl_xy_in)
+                            track.track_in           = refl_xy_in[t - (nxyz - nz)]
+                            track.track_in.track_out = track
+                            track.refl_in            = 1
+                            track.track_in.refl_out  = 0
+
+                        # RIGHT to BOTTOM
+                        elif xy >= nx and t >= nxyz - nz and phi > pi/2 and t >= nz:
+
+                            nxyz_in = len(refl_xy_in)
+                            track.track_in           = refl_xy_in[t - (nxyz - nz)]
+                            track.track_in.track_out = track
+                            track.refl_in            = 1
+                            track.track_in.refl_out  = 0
+
 
     def makePeriodic(self):
         """Determine the outgoing track for each track for the purpose
@@ -578,6 +1172,37 @@ class MOC(object):
                 yield track
 
 
+    def drawReflective(self, i, p, t2d, t3d, n):
+
+        import matplotlib as mpl
+        from mpl_toolkits.mplot3d import Axes3D
+        import numpy as np
+        import matplotlib.pyplot as plt
+        mpl.rcParams['legend.fontsize'] = 10
+        fig = plt.figure()
+        ax = fig.gca(projection='3d')
+
+        track = self.tracks3D[p][i][t2d][t3d]
+        prev_track = track
+        next_track = track
+        
+        for track_num in range(n):
+            
+            track = next_track
+            ax.plot([track.r_in.x, track.r_out.x], [track.r_in.y, track.r_out.y], [track.r_in.z, track.r_out.z], 'k')
+
+            next_track = track.track_out
+            
+            if next_track == prev_track:
+                next_track = track.track_in
+
+            prev_track = track
+
+            
+
+        plt.show()
+
+
 class Track2D(object):
     """
     A single characteristic track drawn through the geometry. Each
@@ -668,6 +1293,7 @@ class Track3D(object):
 
         plot([self.r_in.x, self.r_out.x],
              [self.r_in.y, self.r_out.y],
+             [self.r_in.z, self.r_out.z],
              linespec)
 
     def __iter__(self):

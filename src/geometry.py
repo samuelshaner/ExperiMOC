@@ -25,7 +25,7 @@ class Geometry(object):                 # define a class "Geometry" that creates
       __iter__  = add ability to iterate over all regions in geometry
     """
 
-    def __init__(self, width, height, depth=1.0):  # constructor method initializes assigns the two input variables to attributes of the Geometry object being created
+    def __init__(self, width, height, depth=2.0):  # constructor method initializes assigns the two input variables to attributes of the Geometry object being created
         self.width = width
         self.height = height
         self.depth = depth
