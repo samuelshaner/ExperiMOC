@@ -791,6 +791,12 @@ class MOC(object):
                             track.refl_out           = 0
                             track.track_out.refl_in  = 1
 
+                            nxyz_in = len(refl_z)
+                            track.track_in           = refl_z[nz + t]
+                            track.track_in.track_out = track
+                            track.refl_in            = 1
+                            track.track_in.refl_out  = 0
+
                         # TOP to RIGHT for xy tracks on LEFT
                         elif xy >= nx and t < nz and phi < pi/2 and t < nxyz - nz and xy < ny:
 
@@ -799,6 +805,61 @@ class MOC(object):
                             track.track_out.track_in = track
                             track.refl_out           = 0
                             track.track_out.refl_in  = 1
+
+                            nxyz_in = len(refl_z)
+                            track.track_in           = refl_z[nz + t]
+                            track.track_in.track_out = track
+                            track.refl_in            = 1
+                            track.track_in.refl_out  = 0
+
+                        # TOP to BACK for xy tracks on FRONT
+                        elif xy < nx and t < nz and phi < pi/2 and t < nxyz - nz and nx - xy - 1 >= ny:
+
+                            refl_xy_out = self.tracks3D[p][-(i+1)][self.tracks2D[i][xy].track_out]
+
+                            nxyz_out = len(refl_xy_out)
+                            track.track_out           = refl_xy_out[nz - t - 1]
+                            track.track_out.track_out = track
+                            track.refl_out            = 1
+                            track.track_out.refl_out  = 1
+
+                            nxyz_in = len(refl_z)
+                            track.track_in           = refl_z[nz + t]
+                            track.track_in.track_out = track
+                            track.refl_in            = 1
+                            track.track_in.refl_out  = 0
+
+                        # TOP to BACK for xy tracks on LEFT
+                        elif xy >= nx and t < nz and phi < pi/2 and t < nxyz - nz and xy >= ny:
+
+                            refl_xy_out = self.tracks3D[p][-(i+1)][self.tracks2D[i][xy].track_out]
+
+                            nxyz_out = len(refl_xy_out)
+                            track.track_out           = refl_xy_out[nz - t - 1]
+                            track.track_out.track_out = track
+                            track.refl_out            = 1
+                            track.track_out.refl_out  = 1
+
+                            nxyz_in = len(refl_z)
+                            track.track_in           = refl_z[nz + t]
+                            track.track_in.track_out = track
+                            track.refl_in            = 1
+                            track.track_in.refl_out  = 0
+                            
+                        # TOP to BOTTOM
+                        elif t >= nz and phi < pi/2 and t < nxyz - nz:
+
+                            nxyz_out = len(refl_z)
+                            track.track_out          = refl_z[t - nz]
+                            track.track_out.track_in = track
+                            track.refl_out           = 0
+                            track.track_out.refl_in  = 1
+
+                            nxyz_in = len(refl_z)
+                            track.track_in           = refl_z[nz + t]
+                            track.track_in.track_out = track
+                            track.refl_in            = 1
+                            track.track_in.refl_out  = 0
 
                         # FRONT to RIGHT
                         elif xy < nx and t >= nxyz - nz and phi < pi/2 and t < nz and nx - xy - 1 < ny:
@@ -809,8 +870,75 @@ class MOC(object):
                             track.refl_out           = 0
                             track.track_out.refl_in  = 1
 
+                            refl_xy_in  = self.tracks3D[p][-(i+1)][self.tracks2D[i][xy].track_in]
+
+                            nxyz_in = len(refl_xy_in)
+                            track.track_in           = refl_xy_in[nxyz_in - t + nxyz - nz - 1]
+                            track.track_in.track_in  = track
+                            track.refl_in            = 0
+                            track.track_in.refl_in   = 0
+
+                        # FRONT to BACK
+                        elif xy < nx and t >= nxyz - nz and phi < pi/2 and t < nz and nx - xy - 1 >= ny:
+
+                            refl_xy_out = self.tracks3D[p][-(i+1)][self.tracks2D[i][xy].track_out]
+
+                            nxyz_out = len(refl_xy_out)
+                            track.track_out           = refl_xy_out[nz - t - 1]
+                            track.track_out.track_out = track
+                            track.refl_out            = 1
+                            track.track_out.refl_out  = 1
+
+                            refl_xy_in  = self.tracks3D[p][-(i+1)][self.tracks2D[i][xy].track_in]
+
+                            nxyz_in = len(refl_xy_in)
+                            track.track_in           = refl_xy_in[(nxyz - t - 1) + (nxyz_in - nz)]
+                            track.track_in.track_in  = track
+                            track.refl_in            = 0
+                            track.track_in.refl_in   = 0
+
+                        # FRONT to BOTTOM
+                        elif xy < nx and t >= nxyz - nz and phi < pi/2 and t >= nz:
+
+                            nxyz_out = len(refl_z)
+                            track.track_out          = refl_z[t - nz]
+                            track.track_out.track_in = track
+                            track.refl_out           = 0
+                            track.track_out.refl_in  = 1
+
+                            refl_xy_in  = self.tracks3D[p][-(i+1)][self.tracks2D[i][xy].track_in]
+
+                            nxyz_in = len(refl_xy_in)
+                            track.track_in           = refl_xy_in[(nxyz - t - 1) + (nxyz_in - nz)]
+                            track.track_in.track_in  = track
+                            track.refl_in            = 0
+                            track.track_in.refl_in   = 0
+
+                        # LEFT to RIGHT
+                        elif xy >= nx and t >= nxyz - nz and phi < pi/2 and t < nz and xy < ny:
+
+                            nxyz_out = len(refl_xy_out)
+                            track.track_out          = refl_xy_out[nxyz_out - nz + t]
+                            track.track_out.track_in = track
+                            track.refl_out           = 0
+                            track.track_out.refl_in  = 1
+
+                            nxyz_in = len(refl_xy_in)
+                            track.track_in           = refl_xy_in[t - (nxyz - nz)]
+                            track.track_in.track_out = track
+                            track.refl_in            = 1
+                            track.track_in.refl_out  = 0
+
                         # LEFT to BACK
                         elif xy >= nx and t >= nxyz - nz and phi < pi/2 and t < nz and xy >= ny:
+
+                            refl_xy_out = self.tracks3D[p][-(i+1)][self.tracks2D[i][xy].track_out]
+
+                            nxyz_out = len(refl_xy_out)
+                            track.track_out           = refl_xy_out[nz - t - 1]
+                            track.track_out.track_out = track
+                            track.refl_out            = 1
+                            track.track_out.refl_out  = 1
 
                             nxyz_in = len(refl_xy_in)
                             track.track_in           = refl_xy_in[t - (nxyz - nz)]
@@ -821,29 +949,17 @@ class MOC(object):
                         # LEFT to BOTTOM
                         elif xy >= nx and t >= nxyz - nz and phi < pi/2 and t >= nz:
 
+                            nxyz_out = len(refl_z)
+                            track.track_out          = refl_z[t - nz]
+                            track.track_out.track_in = track
+                            track.refl_out           = 0
+                            track.track_out.refl_in  = 1
+
                             nxyz_in = len(refl_xy_in)
                             track.track_in           = refl_xy_in[t - (nxyz - nz)]
                             track.track_in.track_out = track
                             track.refl_in            = 1
                             track.track_in.refl_out  = 0
-
-                            #import matplotlib as mpl
-                            #from mpl_toolkits.mplot3d import Axes3D
-                            #import numpy as np
-                            #import matplotlib.pyplot as plt
-                            #mpl.rcParams['legend.fontsize'] = 10
-                            #fig = plt.figure()
-                            #ax = fig.gca(projection='3d')
-
-                            #ax.plot([track.r_in.x, track.r_out.x], [track.r_in.y, track.r_out.y], [track.r_in.z, track.r_out.z], 'k')
-                            #ax.plot([track.track_out.r_in.x, track.track_out.r_out.x], [track.track_out.r_in.y, track.track_out.r_out.y], [track.track_out.r_in.z, track.track_out.r_out.z], 'k')
-                            #ax.plot([track.track_in.r_in.x, track.track_in.r_out.x], [track.track_in.r_in.y, track.track_in.r_out.y], [track.track_in.r_in.z, track.track_in.r_out.z], 'k')
-
-                            #ax.plot([self.tracks2D[i][xy].r_in.x, self.tracks2D[i][xy].r_out.x], [self.tracks2D[i][xy].r_in.y, self.tracks2D[i][xy].r_out.y], [0,0], 'k')
-                            #ax.plot([self.tracks2D[nangle-i-1][self.tracks2D[i][xy].track_out].r_in.x, self.tracks2D[nangle-i-1][self.tracks2D[i][xy].track_out].r_out.x], [self.tracks2D[nangle-i-1][self.tracks2D[i][xy].track_out].r_in.y, self.tracks2D[nangle-i-1][self.tracks2D[i][xy].track_out].r_out.y], [0,0], 'k')
-                            #ax.plot([self.tracks2D[nangle-i-1][self.tracks2D[i][xy].track_in].r_in.x, self.tracks2D[nangle-i-1][self.tracks2D[i][xy].track_in].r_out.x], [self.tracks2D[nangle-i-1][self.tracks2D[i][xy].track_in].r_in.y, self.tracks2D[nangle-i-1][self.tracks2D[i][xy].track_in].r_out.y], [0,0], 'k')
-
-                            #plt.show()
 
                         # PHI > PI / 2
 
@@ -856,6 +972,44 @@ class MOC(object):
                             track.refl_out           = 0
                             track.track_out.refl_in  = 1
 
+                            nxyz_in = len(refl_z)
+                            track.track_in           = refl_z[nz + t]
+                            track.track_in.track_out = track
+                            track.refl_in            = 1
+                            track.track_in.refl_out  = 0
+
+                        # TOP to BACK
+                        elif t < nz and phi > pi/2 and t < nxyz - nz and xy >= ny:
+
+                            refl_xy_out = self.tracks3D[p][-(i+1)][self.tracks2D[i][xy].track_out]
+
+                            nxyz_out = len(refl_xy_out)
+                            track.track_out           = refl_xy_out[nz - t - 1]
+                            track.track_out.track_out = track
+                            track.refl_out            = 1
+                            track.track_out.refl_out  = 1
+
+                            nxyz_in = len(refl_z)
+                            track.track_in           = refl_z[nz + t]
+                            track.track_in.track_out = track
+                            track.refl_in            = 1
+                            track.track_in.refl_out  = 0
+
+                        # TOP to BOTTOM
+                        elif t >= nz and phi > pi/2 and t < nxyz - nz:
+
+                            nxyz_out = len(refl_z)
+                            track.track_out          = refl_z[t - nz]
+                            track.track_out.track_in = track
+                            track.refl_out           = 0
+                            track.track_out.refl_in  = 1
+
+                            nxyz_in = len(refl_z)
+                            track.track_in           = refl_z[nz + t]
+                            track.track_in.track_out = track
+                            track.refl_in            = 1
+                            track.track_in.refl_out  = 0
+
                         # FRONT to LEFT
                         elif xy < nx and t >= nxyz - nz and phi > pi/2 and t < nz and xy < ny:
 
@@ -864,6 +1018,50 @@ class MOC(object):
                             track.track_out.track_in = track
                             track.refl_out           = 0
                             track.track_out.refl_in  = 1
+
+                            refl_xy_in  = self.tracks3D[p][-(i+1)][self.tracks2D[i][xy].track_in]
+
+                            nxyz_in = len(refl_xy_in)
+                            track.track_in           = refl_xy_in[nxyz_in - t + nxyz - nz - 1]
+                            track.track_in.track_in  = track
+                            track.refl_in            = 0
+                            track.track_in.refl_in   = 0
+
+                        # FRONT to BACK
+                        elif xy < nx and t >= nxyz - nz and phi > pi/2 and t < nz and xy >= ny:
+
+                            refl_xy_out = self.tracks3D[p][-(i+1)][self.tracks2D[i][xy].track_out]
+
+                            nxyz_out = len(refl_xy_out)
+                            track.track_out           = refl_xy_out[nz - t - 1]
+                            track.track_out.track_out = track
+                            track.refl_out            = 1
+                            track.track_out.refl_out  = 1
+
+                            refl_xy_in  = self.tracks3D[-(p+1)][-(i+1)][self.tracks2D[i][xy].track_in]
+
+                            nxyz_in = len(refl_xy_in)
+                            track.track_in           = refl_xy_in[(nxyz - t - 1) + (nxyz_in - nz)]
+                            track.track_in.track_in  = track
+                            track.refl_in            = 0
+                            track.track_in.refl_in   = 0
+
+                        # FRONT to BOTTOM
+                        elif xy < nx and t >= nxyz - nz and phi > pi/2 and t >= nz:
+
+                            nxyz_out = len(refl_z)
+                            track.track_out          = refl_z[t - nz]
+                            track.track_out.track_in = track
+                            track.refl_out           = 0
+                            track.track_out.refl_in  = 1
+
+                            refl_xy_in  = self.tracks3D[p][-(i+1)][self.tracks2D[i][xy].track_in]
+
+                            nxyz_in = len(refl_xy_in)
+                            track.track_in           = refl_xy_in[(nxyz - t - 1) + (nxyz_in - nz)]
+                            track.track_in.track_in  = track
+                            track.refl_in            = 0
+                            track.track_in.refl_in   = 0
 
                         # RIGHT to LEFT
                         elif xy >= nx and t >= nxyz - nz and phi > pi/2 and t < nz and xy < ny:
@@ -883,6 +1081,14 @@ class MOC(object):
                         # RIGHT to BACK
                         elif xy >= nx and t >= nxyz - nz and phi > pi/2 and t < nz and xy >= ny:
 
+                            refl_xy_out = self.tracks3D[p][-(i+1)][self.tracks2D[i][xy].track_out]
+
+                            nxyz_out = len(refl_xy_out)
+                            track.track_out           = refl_xy_out[nz - t - 1]
+                            track.track_out.track_out = track
+                            track.refl_out            = 1
+                            track.track_out.refl_out  = 1
+
                             nxyz_in = len(refl_xy_in)
                             track.track_in           = refl_xy_in[t - (nxyz - nz)]
                             track.track_in.track_out = track
@@ -892,11 +1098,20 @@ class MOC(object):
                         # RIGHT to BOTTOM
                         elif xy >= nx and t >= nxyz - nz and phi > pi/2 and t >= nz:
 
+                            nxyz_out = len(refl_z)
+                            track.track_out          = refl_z[t - nz]
+                            track.track_out.track_in = track
+                            track.refl_out           = 0
+                            track.track_out.refl_in  = 1
+
                             nxyz_in = len(refl_xy_in)
                             track.track_in           = refl_xy_in[t - (nxyz - nz)]
                             track.track_in.track_out = track
                             track.refl_in            = 1
                             track.track_in.refl_out  = 0
+
+                        else:
+                            print('Could not find reflective track: {0}'.format(track))
 
 
     def makePeriodic(self):
